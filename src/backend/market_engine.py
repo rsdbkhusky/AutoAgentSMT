@@ -177,7 +177,7 @@ class MarketEngine:
         self.trade_history: list[dict] = []
 
     def initialize_stocks(self):
-        """根据配置初始化所有股票的OrderBook，并创建做市商挂单提供流动性"""
+        """根据配置初始化所有股票的OrderBook"""
         for stock in self.stocks_config:
             ob = OrderBook(
                 stock_code=stock["code"],
@@ -186,42 +186,6 @@ class MarketEngine:
                 sector=stock["sector"],
             )
             self.order_books[stock["code"]] = ob
-
-        # 创建初始做市商挂单，提供流动性
-        depth = self.market_config.get("initial_market_maker_depth", 5)
-        mm_qty = self.market_config.get("market_maker_quantity", 1000)
-        tick = self.market_config["price_tick"]
-        for code, ob in self.order_books.items():
-            base_price = ob.last_price
-            for i in range(depth):
-                # 卖单：从初始价格开始（i=0时等于base_price）
-                sell_price = round(base_price + i * tick, 2)
-                sell_order = OrderEntry(
-                    order_id=f"mm_sell_{code}_{i}",
-                    agent_id="__market_maker__",
-                    side="sell",
-                    price=sell_price,
-                    quantity=mm_qty,
-                    remaining=mm_qty,
-                    timestamp=0,
-                )
-                ob.sell_orders.append(sell_order)
-                # 买单：初始价格下方
-                buy_price = round(base_price - (i + 1) * tick, 2)
-                if buy_price > 0:
-                    buy_order = OrderEntry(
-                        order_id=f"mm_buy_{code}_{i}",
-                        agent_id="__market_maker__",
-                        side="buy",
-                        price=buy_price,
-                        quantity=mm_qty,
-                        remaining=mm_qty,
-                        timestamp=0,
-                    )
-                    ob.buy_orders.append(buy_order)
-            # 排序
-            ob.buy_orders.sort(key=lambda o: (-o.price, o.timestamp))
-            ob.sell_orders.sort(key=lambda o: (o.price, o.timestamp))
 
     def submit_order(self, agent_id: str, stock_code: str, side: str,
                      price: float, quantity: int) -> dict:

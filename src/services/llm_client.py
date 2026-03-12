@@ -8,6 +8,8 @@ import logging
 from openai import AsyncOpenAI
 
 logger = logging.getLogger("llm_client")
+_file_only = {"file_only": True}
+_call_counter = 0
 
 
 class RateLimiter:
@@ -50,25 +52,33 @@ class BaseLLM:
     async def chat(self, messages: list[dict], temperature: float = None,
                    max_tokens: int = None) -> str:
         """发送聊天请求，返回助手回复文本"""
-        await self.rate_limiter.acquire()
+        # await self.rate_limiter.acquire()
         temp = temperature if temperature is not None else self.default_temperature
         tokens = max_tokens if max_tokens is not None else self.max_tokens
+
+        global _call_counter
+        _call_counter += 1
+        call_id = _call_counter
+        logger.info(f"[LLM#{call_id}] 请求上下文:\n{json.dumps(messages, ensure_ascii=False, indent=2)}", extra=_file_only)
 
         for attempt in range(self.retry_attempts):
             try:
                 response = await self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
-                    temperature=temp,
-                    max_tokens=tokens,
+                    temperature=1.9,
+                    # max_tokens=tokens,
+                    extra_body={"enable_thinking": False},
                 )
-                return response.choices[0].message.content or ""
+                content = response.choices[0].message.content or ""
+                logger.info(f"[LLM#{call_id}] 响应全文:\n{content}", extra=_file_only)
+                return content
             except Exception as e:
                 logger.warning(f"LLM 调用失败 (第{attempt + 1}次): {e}")
                 if attempt < self.retry_attempts - 1:
                     await asyncio.sleep(2 ** attempt)
                 else:
-                    logger.error(f"LLM 调用彻底失败: {e}")
+                    logger.error(f"[LLM#{call_id}] 调用彻底失败: {e}")
                     return ""
 
     async def chat_json(self, messages: list[dict], temperature: float = 0.3) -> dict:

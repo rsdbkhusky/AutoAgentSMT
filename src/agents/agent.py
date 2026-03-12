@@ -24,6 +24,13 @@ class Agent:
         self.type_id = config.get("type_id", "unknown")
         self.config = config
 
+        # 信息频道配置（缺省全部开启，向后兼容）
+        channels = config.get("info_channels", {})
+        self.channel_market_history = channels.get("market_history", 5)
+        self.channel_order_book = channels.get("order_book", True)
+        self.channel_chat = channels.get("chat", True)
+        self.channel_news = channels.get("news", True)
+
     def get_portfolio_value(self, prices: dict[str, float]) -> float:
         """计算总资产"""
         stock_value = sum(prices.get(code, 0) * qty for code, qty in self.positions.items())
@@ -52,37 +59,61 @@ class Agent:
         return prompt
 
     async def perceive(self, market_snapshot: dict, news_list: list[dict],
-                       recent_chat: list[dict]) -> dict:
-        """感知阶段：组装当前环境信息"""
-        # 市场行情摘要
-        market_text = "当前市场行情：\n"
-        for code, quote in market_snapshot.get("stocks", {}).items():
-            ask = quote.get('best_ask', 0)
-            bid = quote.get('best_bid', 0)
-            ask_str = f" 卖一¥{ask}" if ask else ""
-            bid_str = f" 买一¥{bid}" if bid else ""
-            market_text += f"  {quote['name']}({code}): ¥{quote['price']} 涨跌{quote['change_pct']}%{ask_str}{bid_str}\n"
+                       recent_chat: list[dict], engine) -> dict:
+        """感知阶段：根据 info_channels 配置组装环境信息"""
 
-        # 新闻摘要
+        # 市场行情历史（多轮K线）
+        market_text = ""
+        if self.channel_market_history > 0:
+            market_text = "市场行情：\n"
+            for code, quote in market_snapshot.get("stocks", {}).items():
+                market_text += f"\n  {quote['name']}({code}): 最新价 ¥{quote['price']} 涨跌{quote['change_pct']}%\n"
+                klines = engine.get_klines(code, limit=self.channel_market_history)
+                if klines:
+                    market_text += "    近期走势:\n"
+                    for k in klines:
+                        market_text += (f"    {k['time_str']}: "
+                                        f"开{k['open']:.2f} 高{k['high']:.2f} "
+                                        f"低{k['low']:.2f} 收{k['close']:.2f} "
+                                        f"量{k['volume']}\n")
+
+        # 盘口深度（独立信息类型）
+        depth_text = ""
+        if self.channel_order_book:
+            depth_text = "盘口深度：\n"
+            for code in market_snapshot.get("stocks", {}):
+                ob = engine.order_books.get(code)
+                if ob:
+                    depth = ob.get_depth(levels=5)
+                    depth_text += f"  {code}:\n"
+                    sells = depth.get("sell", [])
+                    for ask in reversed(sells):
+                        depth_text += f"    卖 ¥{ask['price']:.2f} × {ask['quantity']}\n"
+                    depth_text += "    ----\n"
+                    for bid in depth.get("buy", []):
+                        depth_text += f"    买 ¥{bid['price']:.2f} × {bid['quantity']}\n"
+
+        # 新闻
         news_text = ""
-        if news_list:
+        if self.channel_news and news_list:
             news_text = "最新新闻：\n"
             for news in news_list[-3:]:
                 sentiment_cn = {"positive": "利好", "negative": "利空", "neutral": "中性"}.get(news.get("sentiment", ""), "")
                 news_text += f"  [{sentiment_cn}] {news['title']}: {news['content']}\n"
 
-        # 群聊摘要
+        # 群聊
         chat_text = ""
-        if recent_chat:
+        if self.channel_chat and recent_chat:
             chat_text = "近期群聊讨论：\n"
             for msg in recent_chat[-5:]:
                 chat_text += f"  {msg['agent_name']}: {msg['content']}\n"
 
-        # 历史记忆
+        # 历史记忆（始终包含）
         memory_text = "你的近期记忆：\n" + self.memory.summarize()
 
         return {
             "market_text": market_text,
+            "depth_text": depth_text,
             "news_text": news_text,
             "chat_text": chat_text,
             "memory_text": memory_text,
@@ -94,6 +125,7 @@ class Agent:
         system_prompt = self._build_system_prompt(prices, current_time)
         user_content = "\n\n".join(filter(None, [
             perception["market_text"],
+            perception.get("depth_text", ""),
             perception["news_text"],
             perception["chat_text"],
             perception["memory_text"],
@@ -107,64 +139,107 @@ class Agent:
 
         decision = await self.llm.chat_json(messages)
 
-        # 如果 LLM 返回为空或格式不对，默认 hold
-        if not decision or "action" not in decision:
-            decision = {
-                "action": "hold",
-                "stock_code": "",
-                "quantity": 0,
-                "price": 0,
-                "reasoning": "暂时观望",
-                "chat_message": "",
-            }
+        if not decision:
+            return {"orders": [], "reasoning": "暂时观望", "chat_message": ""}
+
+        # 向后兼容：旧格式（单个 action）转换为新格式（orders 列表）
+        if "orders" not in decision:
+            action = decision.get("action", "hold")
+            if action in ("buy", "sell"):
+                return {
+                    "orders": [{
+                        "action": action,
+                        "stock_code": decision.get("stock_code", ""),
+                        "quantity": decision.get("quantity", 0),
+                        "price": decision.get("price", 0),
+                    }],
+                    "reasoning": decision.get("reasoning", ""),
+                    "chat_message": decision.get("chat_message", ""),
+                }
+            else:
+                return {
+                    "orders": [],
+                    "reasoning": decision.get("reasoning", "暂时观望"),
+                    "chat_message": decision.get("chat_message", ""),
+                }
 
         return decision
 
     async def act(self, decision: dict, engine, prices: dict[str, float]) -> dict:
-        """行动阶段：提交订单"""
-        result = {"agent_id": self.agent_id, "agent_name": self.name, "decision": decision, "trade_result": None}
+        """行动阶段：提交多个订单"""
+        result = {
+            "agent_id": self.agent_id,
+            "agent_name": self.name,
+            "decision": decision,
+            "trade_results": [],
+        }
 
-        action = decision.get("action", "hold")
-        stock_code = decision.get("stock_code", "")
-        quantity = int(decision.get("quantity", 0))
-        price = float(decision.get("price", 0))
+        orders = decision.get("orders", [])
+        if not orders:
+            self.memory.add_event("decision", f"决定观望: {decision.get('reasoning', '')}")
+            return result
 
-        if action in ("buy", "sell") and stock_code and quantity > 0 and price > 0:
-            # 买入前检查资金
-            if action == "buy" and price * quantity > self.cash:
-                quantity = int(self.cash / price)
+        available_cash = self.cash
+        available_positions = dict(self.positions)
+
+        for order in orders:
+            action = order.get("action", "hold")
+            stock_code = order.get("stock_code", "")
+            quantity = int(order.get("quantity", 0))
+            price = float(order.get("price", 0))
+
+            if action not in ("buy", "sell") or not stock_code or quantity <= 0 or price <= 0:
+                continue
+
+            # 买入检查
+            if action == "buy":
+                affordable = int(available_cash / price)
+                quantity = min(quantity, affordable)
                 if quantity <= 0:
                     self.memory.add_event("decision", f"尝试买入{stock_code}但资金不足")
-                    return result
+                    continue
 
-            # 卖出前检查持仓
+            # 卖出检查
             if action == "sell":
-                held = self.positions.get(stock_code, 0)
+                held = available_positions.get(stock_code, 0)
                 if held <= 0:
                     self.memory.add_event("decision", f"尝试卖出{stock_code}但无持仓")
-                    return result
+                    continue
                 quantity = min(quantity, held)
 
             trade_result = engine.submit_order(self.agent_id, stock_code, action, price, quantity)
-            result["trade_result"] = trade_result
+            result["trade_results"].append(trade_result)
 
-            # 更新 Agent 的资金和持仓
+            # 更新实际持仓和可用余额
             for trade in trade_result.get("trades", []):
                 trade_qty = trade["quantity"]
                 trade_price = trade["price"]
                 if action == "buy":
                     self.cash -= trade_price * trade_qty
+                    available_cash -= trade_price * trade_qty
                     self.positions[stock_code] = self.positions.get(stock_code, 0) + trade_qty
+                    available_positions[stock_code] = available_positions.get(stock_code, 0) + trade_qty
                 elif action == "sell":
                     self.cash += trade_price * trade_qty
+                    available_cash += trade_price * trade_qty
                     self.positions[stock_code] = self.positions.get(stock_code, 0) - trade_qty
+                    available_positions[stock_code] = available_positions.get(stock_code, 0) - trade_qty
                     if self.positions[stock_code] <= 0:
                         self.positions.pop(stock_code, None)
+                    if available_positions.get(stock_code, 0) <= 0:
+                        available_positions.pop(stock_code, None)
+
+            # 未成交部分预留资源，防止后续订单超额
+            filled_qty = sum(t["quantity"] for t in trade_result.get("trades", []))
+            unfilled = quantity - filled_qty
+            if unfilled > 0:
+                if action == "buy":
+                    available_cash -= price * unfilled
+                elif action == "sell":
+                    available_positions[stock_code] = available_positions.get(stock_code, 0) - unfilled
 
             self.memory.add_event("trade",
                 f"{action} {stock_code} {quantity}股 @ ¥{price}, 成交{len(trade_result.get('trades', []))}笔")
-        else:
-            self.memory.add_event("decision", f"决定观望: {decision.get('reasoning', '')}")
 
         return result
 
@@ -175,7 +250,7 @@ class Agent:
         current_time = market_snapshot.get("virtual_time", "")
 
         # 感知
-        perception = await self.perceive(market_snapshot, news_list, recent_chat)
+        perception = await self.perceive(market_snapshot, news_list, recent_chat, engine)
 
         # 添加新闻到记忆
         for news in news_list:
@@ -183,8 +258,16 @@ class Agent:
 
         # 决策
         decision = await self.decide(perception, prices, current_time)
-        logger.info(f"[{self.name}] 决策: {decision.get('action', 'hold')} "
-                     f"{decision.get('stock_code', '')} {decision.get('quantity', 0)}")
+
+        # 日志
+        orders = decision.get("orders", [])
+        if orders:
+            order_summary = ", ".join(
+                f"{o.get('action')} {o.get('stock_code')} {o.get('quantity')}" for o in orders
+            )
+            logger.info(f"[{self.name}] 决策: {order_summary}")
+        else:
+            logger.info(f"[{self.name}] 决策: hold")
 
         # 行动
         result = await self.act(decision, engine, prices)

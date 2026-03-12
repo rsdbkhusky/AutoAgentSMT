@@ -10,6 +10,13 @@ llm:
   base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   api_key: "sk-ea12206394f2408db43d64978c8e17da"
   model: "qwen3.5-plus"
+  # model: "qwen3.5-flash"
+  # base_url: "https://openrouter.ai/api/v1"
+  # api_key: "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"
+  # model: "qwen/qwen3.5-flash-02-23"
+  # base_url: "https://api.siliconflow.cn/v1"
+  # api_key: "sk-ckxnkfqoskvvfzbmmcxgkxgolhejlnwgeqegptdlgwnwlkbf"
+  # model: "Qwen/Qwen3.5-35B-A3B"
   max_calls_per_minute: 30
   default_temperature: 0.7
   max_tokens: 1024
@@ -25,7 +32,8 @@ simulation:
 # 虚拟时钟
 clock:
   start_time: "2100-01-02 09:30:00"
-  time_step_minutes: 30
+  # time_step_minutes: 30
+  time_step_minutes: 10
   trading_sessions:
     - ["09:30", "11:30"]
     - ["13:00", "15:00"]
@@ -40,44 +48,85 @@ market:
 
 # 股票列表（30只）
 stocks:
-  - { code: "STAR", name: "星辰科技", initial_price: 50.00, sector: "科技", total_shares: 1000000 }
-  - { code: "WOLF", name: "灰狼能源", initial_price: 30.00, sector: "能源", total_shares: 800000 }
-  - { code: "JADE", name: "翡翠消费", initial_price: 80.00, sector: "消费", total_shares: 600000 }
-  - { code: "DRAG", name: "龙腾重工", initial_price: 25.00, sector: "工业", total_shares: 1200000 }
-  - { code: "PHOE", name: "凤凰传媒", initial_price: 15.00, sector: "传媒", total_shares: 900000 }
-  - { code: "TIGR", name: "虎啸金融", initial_price: 42.00, sector: "金融", total_shares: 700000 }
-  - { code: "HAWK", name: "鹰眼安防", initial_price: 35.00, sector: "科技", total_shares: 850000 }
-  - { code: "BEAR", name: "熊盾保险", initial_price: 28.00, sector: "金融", total_shares: 950000 }
-  - { code: "DOVE", name: "白鸽医药", initial_price: 65.00, sector: "医药", total_shares: 550000 }
-  - { code: "SWAN", name: "天鹅地产", initial_price: 18.00, sector: "地产", total_shares: 1100000 }
-  - { code: "LION", name: "雄狮汽车", initial_price: 55.00, sector: "汽车", total_shares: 750000 }
-  - { code: "EAGL", name: "苍鹰航空", initial_price: 22.00, sector: "航空", total_shares: 1000000 }
-  - { code: "PNDA", name: "熊猫食品", initial_price: 38.00, sector: "消费", total_shares: 680000 }
-  - { code: "CRNE", name: "仙鹤生物", initial_price: 72.00, sector: "医药", total_shares: 520000 }
-  - { code: "SERP", name: "灵蛇芯片", initial_price: 88.00, sector: "科技", total_shares: 450000 }
-  - { code: "DEER", name: "瑞鹿农业", initial_price: 12.00, sector: "农业", total_shares: 1300000 }
-  - { code: "LYNX", name: "山猫通信", initial_price: 33.00, sector: "通信", total_shares: 820000 }
-  - { code: "FOXS", name: "赤狐电商", initial_price: 45.00, sector: "电商", total_shares: 700000 }
-  - { code: "WHAL", name: "鲸海运输", initial_price: 20.00, sector: "物流", total_shares: 1050000 }
-  - { code: "RAVN", name: "乌鸦矿业", initial_price: 16.00, sector: "矿业", total_shares: 1150000 }
-  - { code: "CARP", name: "锦鲤环保", initial_price: 27.00, sector: "环保", total_shares: 900000 }
-  - { code: "ORCA", name: "虎鲸娱乐", initial_price: 40.00, sector: "娱乐", total_shares: 650000 }
-  - { code: "BULL", name: "金牛材料", initial_price: 58.00, sector: "材料", total_shares: 580000 }
-  - { code: "MOTH", name: "飞蛾照明", initial_price: 14.00, sector: "电器", total_shares: 1200000 }
-  - { code: "CRAN", name: "云鹤教育", initial_price: 32.00, sector: "教育", total_shares: 780000 }
-  - { code: "FALC", name: "猎隼军工", initial_price: 48.00, sector: "军工", total_shares: 620000 }
-  - { code: "TURT", name: "龟甲数据", initial_price: 36.00, sector: "科技", total_shares: 730000 }
-  - { code: "PENG", name: "企鹅云计算", initial_price: 62.00, sector: "科技", total_shares: 540000 }
-  - { code: "SEAL", name: "海豹新能源", initial_price: 44.00, sector: "能源", total_shares: 670000 }
-  - { code: "RBBT", name: "玉兔文旅", initial_price: 19.00, sector: "旅游", total_shares: 1080000 }
+  # - { code: "STAR", name: "星辰科技", initial_price: 50.00, sector: "科技", total_shares: 1000000 }
+  # - { code: "WOLF", name: "灰狼能源", initial_price: 30.00, sector: "能源", total_shares: 800000 }
+  - { code: "STAR", name: "星辰科技", initial_price: 50.00, sector: "科技", total_shares: 100000 }
+  - { code: "WOLF", name: "灰狼能源", initial_price: 30.00, sector: "能源", total_shares: 80000 }
+  # - { code: "JADE", name: "翡翠消费", initial_price: 80.00, sector: "消费", total_shares: 600000 }
+  # - { code: "DRAG", name: "龙腾重工", initial_price: 25.00, sector: "工业", total_shares: 1200000 }
+  # - { code: "PHOE", name: "凤凰传媒", initial_price: 15.00, sector: "传媒", total_shares: 900000 }
+  # - { code: "TIGR", name: "虎啸金融", initial_price: 42.00, sector: "金融", total_shares: 700000 }
+  # - { code: "HAWK", name: "鹰眼安防", initial_price: 35.00, sector: "科技", total_shares: 850000 }
+  # - { code: "BEAR", name: "熊盾保险", initial_price: 28.00, sector: "金融", total_shares: 950000 }
+  # - { code: "DOVE", name: "白鸽医药", initial_price: 65.00, sector: "医药", total_shares: 550000 }
+  # - { code: "SWAN", name: "天鹅地产", initial_price: 18.00, sector: "地产", total_shares: 1100000 }
+  # - { code: "LION", name: "雄狮汽车", initial_price: 55.00, sector: "汽车", total_shares: 750000 }
+  # - { code: "EAGL", name: "苍鹰航空", initial_price: 22.00, sector: "航空", total_shares: 1000000 }
+  # - { code: "PNDA", name: "熊猫食品", initial_price: 38.00, sector: "消费", total_shares: 680000 }
+  # - { code: "CRNE", name: "仙鹤生物", initial_price: 72.00, sector: "医药", total_shares: 520000 }
+  # - { code: "SERP", name: "灵蛇芯片", initial_price: 88.00, sector: "科技", total_shares: 450000 }
+  # - { code: "DEER", name: "瑞鹿农业", initial_price: 12.00, sector: "农业", total_shares: 1300000 }
+  # - { code: "LYNX", name: "山猫通信", initial_price: 33.00, sector: "通信", total_shares: 820000 }
+  # - { code: "FOXS", name: "赤狐电商", initial_price: 45.00, sector: "电商", total_shares: 700000 }
+  # - { code: "WHAL", name: "鲸海运输", initial_price: 20.00, sector: "物流", total_shares: 1050000 }
+  # - { code: "RAVN", name: "乌鸦矿业", initial_price: 16.00, sector: "矿业", total_shares: 1150000 }
+  # - { code: "CARP", name: "锦鲤环保", initial_price: 27.00, sector: "环保", total_shares: 900000 }
+  # - { code: "ORCA", name: "虎鲸娱乐", initial_price: 40.00, sector: "娱乐", total_shares: 650000 }
+  # - { code: "BULL", name: "金牛材料", initial_price: 58.00, sector: "材料", total_shares: 580000 }
+  # - { code: "MOTH", name: "飞蛾照明", initial_price: 14.00, sector: "电器", total_shares: 1200000 }
+  # - { code: "CRAN", name: "云鹤教育", initial_price: 32.00, sector: "教育", total_shares: 780000 }
+  # - { code: "FALC", name: "猎隼军工", initial_price: 48.00, sector: "军工", total_shares: 620000 }
+  # - { code: "TURT", name: "龟甲数据", initial_price: 36.00, sector: "科技", total_shares: 730000 }
+  # - { code: "PENG", name: "企鹅云计算", initial_price: 62.00, sector: "科技", total_shares: 540000 }
+  # - { code: "SEAL", name: "海豹新能源", initial_price: 44.00, sector: "能源", total_shares: 670000 }
+  # - { code: "RBBT", name: "玉兔文旅", initial_price: 19.00, sector: "旅游", total_shares: 1080000 }
 
 # Agent 类型配置引用列表
 agents:
+  # 通用类型 Agent
   - path: "config/agents/conservative.yaml"
-    count: 12
+    count: 3
   - path: "config/agents/aggressive.yaml"
-    count: 15
+    count: 4
   - path: "config/agents/follower.yaml"
-    count: 13
+    count: 3
   - path: "config/agents/value.yaml"
-    count: 10
+    count: 2
+  # 角色 Agent（每个 count=1）
+  - path: "config/agents/char_zhangwei.yaml"
+    count: 1
+  - path: "config/agents/char_lixueqin.yaml"
+    count: 1
+  - path: "config/agents/char_wangjianguo.yaml"
+    count: 1
+  - path: "config/agents/char_zhaoxiaolei.yaml"
+    count: 1
+  - path: "config/agents/char_chenmin.yaml"
+    count: 1
+  - path: "config/agents/char_sundaming.yaml"
+    count: 1
+  - path: "config/agents/char_huanglihua.yaml"
+    count: 1
+  - path: "config/agents/char_liuyang.yaml"
+    count: 1
+  - path: "config/agents/char_zhouting.yaml"
+    count: 1
+  - path: "config/agents/char_wuqiang.yaml"
+    count: 1
+  - path: "config/agents/char_zhengxueming.yaml"
+    count: 1
+  - path: "config/agents/char_linxiaoyu.yaml"
+    count: 1
+  - path: "config/agents/char_yangtiezhu.yaml"
+    count: 1
+  - path: "config/agents/char_hefang.yaml"
+    count: 1
+  - path: "config/agents/char_majun.yaml"
+    count: 1
+  # 逆反型角色
+  - path: "config/agents/char_xiejianming.yaml"
+    count: 1
+  - path: "config/agents/char_suxiaoman.yaml"
+    count: 1
+  - path: "config/agents/char_fanzhiqiang.yaml"
+    count: 1

@@ -45,10 +45,11 @@ def setup_logging(level: str = "info"):
 
     formatter = logging.Formatter(fmt, datefmt=datefmt)
 
-    # 终端输出
+    # 终端输出（file_only 标记的日志会被过滤掉）
     console_handler = logging.StreamHandler()
     console_handler.setLevel(log_level)
     console_handler.setFormatter(formatter)
+    console_handler.addFilter(lambda r: not getattr(r, "file_only", False))
     root_logger.addHandler(console_handler)
 
     # 文件输出
@@ -97,6 +98,9 @@ def main():
     agent_mgr = AgentManager(llm)
     agent_mgr.load_agents(config["agents"], base_dir=project_root)
     logger.info(f"Agent 管理器初始化: {len(agent_mgr.agents)} 个 Agent")
+
+    # 7.5 初始分配股票（模拟 IPO）
+    agent_mgr.distribute_initial_shares(config["stocks"])
 
     # 8. 创建新闻生成器
     news_gen = NewsGenerator(llm, config["stocks"])

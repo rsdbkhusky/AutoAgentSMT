@@ -23,7 +23,7 @@ export default function PositionTable() {
             </tr>
           </thead>
           <tbody>
-            {sorted.slice(0, 20).map((p, i) => (
+            {sorted.map((p, i) => (
               <tr key={p.agent_id}>
                 <td>{i + 1}</td>
                 <td>{p.agent_name}</td>

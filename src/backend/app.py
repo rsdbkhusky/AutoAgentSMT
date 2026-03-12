@@ -82,10 +82,11 @@ async def simulation_loop():
                     await state.ws_manager.broadcast("chat", msg)
 
                 # 广播成交
-                trade_result = result.get("trade_result")
-                if trade_result and trade_result.get("trades"):
-                    for trade in trade_result["trades"]:
-                        await state.ws_manager.broadcast("trade", trade)
+                trade_results = result.get("trade_results", [])
+                for trade_result in trade_results:
+                    if trade_result and trade_result.get("trades"):
+                        for trade in trade_result["trades"]:
+                            await state.ws_manager.broadcast("trade", trade)
 
         except Exception as e:
             logger.error(f"Agent 回合执行失败: {e}")
